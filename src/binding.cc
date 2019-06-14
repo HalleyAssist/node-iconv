@@ -15,9 +15,11 @@
  */
 
 #include "iconv.h"
+#include "iostream"
 #include "nan.h"
 #include "node_buffer.h"
 
+#include <locale.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdint.h>
@@ -57,10 +59,15 @@ struct Iconv
     delete data.GetParameter();
   }
 
+  static void WeakCallback2(const Nan::WeakCallbackInfo<std::string>& data)
+  {
+    delete data.GetParameter();
+  }
+
   static void Initialize(Local<Object> obj)
   {
     Local<ObjectTemplate> t = Nan::New<ObjectTemplate>();
-    t->SetInternalFieldCount(1);
+    t->SetInternalFieldCount(2);
     object_template.Reset(t);
     Nan::SetMethod(obj, "make", Make);
     Nan::SetMethod(obj, "convert", Convert);
@@ -78,6 +85,17 @@ struct Iconv
   {
     Nan::Utf8String from_encoding(info[0]);
     Nan::Utf8String to_encoding(info[1]);
+    Nan::Utf8String locale(info[2]);
+    
+    std::string *lang = new std::string(*locale);
+    std::string undefined = std::string("undefined");
+
+    if(0 == lang->compare(undefined)){
+      lang->assign("C");
+    }else {
+      lang->assign(*locale);
+    }
+
     iconv_t conv = iconv_open(*to_encoding, *from_encoding);
     if (conv == reinterpret_cast<iconv_t>(-1)) {
       return info.GetReturnValue().SetNull();
@@ -87,8 +105,10 @@ struct Iconv
         Nan::NewInstance(Nan::New<ObjectTemplate>(object_template))
         .ToLocalChecked();
     Nan::SetInternalFieldPointer(obj, 0, iv);
+    Nan::SetInternalFieldPointer(obj, 1, lang);
     Nan::Persistent<Object> persistent(obj);
     persistent.SetWeak(iv, WeakCallback, Nan::WeakCallbackType::kParameter);
+    persistent.SetWeak(lang, WeakCallback2, Nan::WeakCallbackType::kParameter);
     info.GetReturnValue().Set(obj);
   }
 
@@ -96,6 +116,17 @@ struct Iconv
   {
     Iconv* iv = static_cast<Iconv*>(
         Nan::GetInternalFieldPointer(info[0].As<Object>(), 0));
+    std::string* lang = static_cast<std::string*>(Nan::GetInternalFieldPointer(info[0].As<Object>(), 1));
+
+    locale_t locale = newlocale(LC_ALL_MASK, lang->c_str(), NULL);
+
+    if(locale == (locale_t) 0){
+      std::cerr << "Error at configuring locale for iconv, used locale: \"" << lang->c_str() << "\"" << std::endl;
+      return;
+    }
+
+    locale_t old_locale = uselocale(locale);
+
     const bool is_flush = Nan::To<bool>(info[8]).FromJust();
     ICONV_CONST char* input_buf =
         is_flush ? NULL : node::Buffer::Data(info[1].As<Object>());
@@ -123,6 +154,9 @@ struct Iconv
     Nan::Set(rc, 0, Nan::New<Integer>(static_cast<uint32_t>(input_consumed)));
     Nan::Set(rc, 1, Nan::New<Integer>(static_cast<uint32_t>(output_consumed)));
     info.GetReturnValue().Set(errorno);
+
+    uselocale(old_locale);
+    freelocale(locale);
   }
 
   // Forbid implicit copying.
