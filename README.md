@@ -1,5 +1,30 @@
 # node-iconv
 
+From from the lib [bnoordhuis/node-iconv](https://github.com/bnoordhuis/node-iconv). It adds the third parameter for setting the transliteration locale. This allow to transform `ß` in `ss` instead to the most simplistic `s` automatically. Good if you want to normalize text for comparing later in a more linguistically "correct" way.
+
+For transliterate you can just: 
+
+```javascript
+var iconvDE = new Iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', 'de_DE.UTF-8');
+iconvDE.convert(TEST_STRING).toString()
+```
+
+*Note*: This library needs to be installed with `env GYP_DEFINES="node_iconv_use_system_libiconv=1" npm install`. Make sure the correct env is set when installing this library. Otherwise it will use the static iconv library that can't transliterate correctly.
+
+The third argument is the name of the transliteration definition file for iconv. Make sure to have it installed in your unix system. For example, for installing German you can:
+
+```bash
+apt-get -y install locales
+sed -i -e 's/# de_DE.UTF-8 UTF-8/de_DE.UTF-8 UTF-8/' /etc/locale.gen
+dpkg-reconfigure --frontend=noninteractive locales
+update-locale
+```
+
+The rest of the library should work as described in the original Readme. 
+
+The original Readme is left here for documentation purposes: 
+----------------------------------
+
 Text recoding in JavaScript for fun and profit!
 
 ## Supported encodings
