@@ -69,17 +69,17 @@ struct Iconv
     delete data.GetParameter();
   }
 
-  static void Initialize(Handle<Object> obj)
+  static void Initialize(Local<Object> obj)
   {
-    Local<ObjectTemplate> t = ObjectTemplate::New();
+    Local<ObjectTemplate> t = Nan::New<ObjectTemplate>();
     t->SetInternalFieldCount(2);
     object_template.Reset(t);
-    obj->Set(Nan::New<String>("make").ToLocalChecked(),
-             Nan::New<FunctionTemplate>(Make)->GetFunction());
-    obj->Set(Nan::New<String>("convert").ToLocalChecked(),
-             Nan::New<FunctionTemplate>(Convert)->GetFunction());
-#define EXPORT_ERRNO(err) \
-    obj->Set(Nan::New<String>(#err).ToLocalChecked(), Nan::New<Integer>(err))
+    Nan::SetMethod(obj, "make", Make);
+    Nan::SetMethod(obj, "convert", Convert);
+#define EXPORT_ERRNO(err)                                                     \
+    Nan::Set(obj,                                                             \
+             Nan::New<String>(#err).ToLocalChecked(),                         \
+             Nan::New<Integer>(err))
     EXPORT_ERRNO(EINVAL);
     EXPORT_ERRNO(EILSEQ);
     EXPORT_ERRNO(E2BIG);
@@ -88,8 +88,8 @@ struct Iconv
 
   static NAN_METHOD(Make)
   {
-    String::Utf8Value from_encoding(info[0]);
-    String::Utf8Value to_encoding(info[1]);
+    Nan::Utf8String from_encoding(info[0]);
+    Nan::Utf8String to_encoding(info[1]);
     String::Utf8Value locale(info[2]);
 
     std::string *lang = new std::string(*locale);
@@ -108,7 +108,8 @@ struct Iconv
     }
     Iconv* iv = new Iconv(conv);
     Local<Object> obj =
-        Nan::New<ObjectTemplate>(object_template)->NewInstance();
+        Nan::NewInstance(Nan::New<ObjectTemplate>(object_template))
+        .ToLocalChecked();
     Nan::SetInternalFieldPointer(obj, 0, iv);
     Nan::SetInternalFieldPointer(obj, 1, lang);
     Nan::Persistent<Object> persistent(obj);
@@ -133,13 +134,13 @@ struct Iconv
     locale_t old_locale = uselocale(locale);
 
     const bool is_flush = info[8]->BooleanValue();
-    ICONV_CONST char* input_buf =
+    const char* input_buf =
         is_flush ? NULL : node::Buffer::Data(info[1].As<Object>());
-    size_t input_start = info[2]->Uint32Value();
-    size_t input_size = info[3]->Uint32Value();
+    size_t input_start = Nan::To<uint32_t>(info[2]).FromJust();
+    size_t input_size = Nan::To<uint32_t>(info[3]).FromJust();
     char* output_buf = node::Buffer::Data(info[4].As<Object>());
-    size_t output_start = info[5]->Uint32Value();
-    size_t output_size = info[6]->Uint32Value();
+    size_t output_start = Nan::To<uint32_t>(info[5]).FromJust();
+    size_t output_size = Nan::To<uint32_t>(info[6]).FromJust();
     Local<Array> rc = info[7].As<Array>();
     if (input_buf != NULL) input_buf += input_start;
     output_buf += output_start;
@@ -156,8 +157,8 @@ struct Iconv
     }
     input_consumed -= input_size;
     output_consumed -= output_size;
-    rc->Set(0, Nan::New<Integer>(static_cast<uint32_t>(input_consumed)));
-    rc->Set(1, Nan::New<Integer>(static_cast<uint32_t>(output_consumed)));
+    Nan::Set(rc, 0, Nan::New<Integer>(static_cast<uint32_t>(input_consumed)));
+    Nan::Set(rc, 1, Nan::New<Integer>(static_cast<uint32_t>(output_consumed)));
     info.GetReturnValue().Set(errorno);
     
     uselocale(old_locale);
