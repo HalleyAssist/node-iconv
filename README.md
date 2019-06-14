@@ -1,6 +1,6 @@
 # node-iconv
 
-From from the lib [bnoordhuis/node-iconv](https://github.com/bnoordhuis/node-iconv). It adds the third parameter for setting the transliteration locale. This allow to transform `ß` in `ss` instead to the most simplistic `s` automatically. Good if you want to normalize text for comparing later in a more linguistically "correct" way.
+Fork from the lib [bnoordhuis/node-iconv](https://github.com/bnoordhuis/node-iconv). It adds the third parameter for setting the transliteration locale. This allow to transform `ß` in `ss` instead to the most simplistic `s` automatically. Good if you want to normalize text for comparing later in a more linguistically "correct" way.
 
 For transliterate you can just: 
 
